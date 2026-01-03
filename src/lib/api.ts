@@ -1,0 +1,621 @@
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+export interface Category {
+  id: number;
+  name: string;
+  description: string;
+  image: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  category: number;
+  category_name: string;
+  stock: number;
+  is_active: boolean;
+  is_in_stock: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
+
+export interface OrderItem {
+  id: number;
+  order: number;
+  product: number;
+  product_name: string;
+  product_image: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
+export interface Address {
+  id: number;
+  user: number;
+  address_type: 'home' | 'work' | 'other';
+  apartment_flat: string;
+  street: string;
+  landmark: string;
+  village: string;
+  mandal: string;
+  district: string;
+  state: string;
+  pincode: string;
+  full_address: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UPISettings {
+  id: number;
+  merchant_name: string;
+  upi_id: string;
+  qr_code_image: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Order {
+  id: number;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  shipping_address: string;
+  total_amount: number;
+  shipping_charge: number;
+  order_status: string;
+  payment_status: string;
+  created_at: string;
+  updated_at: string;
+  items: OrderItem[];
+}
+
+// Authentication Interfaces
+export interface User {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  date_of_birth: string | null;
+  address: string;
+  is_staff: boolean;
+  is_superuser: boolean;
+  is_active: boolean;
+}
+
+export interface AuthTokens {
+  refresh: string;
+  access: string;
+}
+
+export interface LoginResponse {
+  user: User;
+  tokens: AuthTokens;
+  message: string;
+}
+
+export interface RegisterResponse {
+  user: User;
+  tokens: AuthTokens;
+  message: string;
+}
+
+export class ApiService {
+  private static cache = new Map<string, { data: any; timestamp: number }>();
+  private static readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  private static getCachedData(key: string): any | undefined {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data;
+    }
+    return undefined;
+  }
+
+  private static setCachedData(key: string, data: any) {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  static async getCategories(): Promise<Category[]> {
+    const cacheKey = 'categories';
+    const cachedData = this.getCachedData(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/categories/`);
+    if (!response.ok) throw new Error('Failed to fetch categories');
+    const data = await response.json();
+    this.setCachedData(cacheKey, data);
+    return data;
+  }
+
+  static async getProducts(categoryId?: number): Promise<Product[]> {
+    const cacheKey = categoryId ? `products_category_${categoryId}` : 'products_all';
+    const cachedData = this.getCachedData(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    const url = categoryId
+      ? `${API_BASE_URL}/products/?category=${categoryId}`
+      : `${API_BASE_URL}/products/`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch products');
+    const data = await response.json();
+    this.setCachedData(cacheKey, data);
+    return data;
+  }
+
+  static async getProduct(id: number): Promise<Product> {
+    const response = await fetch(`${API_BASE_URL}/products/${id}/`);
+    if (!response.ok) throw new Error('Failed to fetch product');
+    return response.json();
+  }
+
+  static async createOrder(orderData: {
+    customer_name: string;
+    customer_phone: string;
+    customer_email?: string;
+    shipping_address: string;
+    total_amount: number;
+    shipping_charge: number;
+    items: Array<{
+      product_id: number;
+      quantity: number;
+      price: number;
+    }>;
+  }): Promise<Order> {
+    const response = await fetch(`${API_BASE_URL}/orders/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create order');
+    }
+    return response.json();
+  }
+
+  static async uploadPaymentProof(orderId: number, formData: FormData): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}/upload_payment_proof/`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload payment proof');
+    }
+    return response.json();
+  }
+
+  // Authentication Methods
+  static async register(userData: {
+    username: string;
+    email: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    password: string;
+    password_confirm: string;
+  }): Promise<RegisterResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/register/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Registration failed');
+    }
+    return response.json();
+  }
+
+  static async login(credentials: {
+    username_or_email: string;
+    password: string;
+  }): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+    if (!response.ok) {
+      let errorMessage = 'Login failed';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail ||
+          errorData.message ||
+          errorData.error ||
+          (errorData.non_field_errors && errorData.non_field_errors[0]) ||
+          'Login failed';
+      } catch (e) {
+        // If response is not JSON, get the text
+        try {
+          const textResponse = await response.text();
+          errorMessage = textResponse || 'Login failed';
+        } catch (e2) {
+          errorMessage = 'Login failed - server error';
+        }
+      }
+      throw new Error(errorMessage);
+    }
+    return response.json();
+  }
+
+  static async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/password-reset/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to send reset email');
+    }
+    return response.json();
+  }
+
+  static async resetPassword(data: {
+    token: string;
+    new_password: string;
+    new_password_confirm: string;
+  }): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/password-reset-confirm/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Password reset failed');
+    }
+    return response.json();
+  }
+
+  static async getProfile(token?: string): Promise<User> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/profile/`, {
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to fetch profile');
+    return response.json();
+  }
+
+  static async updateProfile(profileData: Partial<User>, token?: string): Promise<User> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/profile/update/`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(profileData),
+    });
+    if (!response.ok) throw new Error('Failed to update profile');
+    return response.json();
+  }
+
+  // Admin API methods
+  static async getAdminOrders(): Promise<Order[]> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/orders/`, { headers });
+    if (!response.ok) throw new Error('Failed to fetch admin orders');
+    return response.json();
+  }
+
+  static async getAdminDashboardStats(): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/dashboard-stats/`, { headers });
+    if (!response.ok) throw new Error('Failed to fetch dashboard stats');
+    return response.json();
+  }
+
+  static async getAdminProducts(): Promise<Product[]> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/products/`, { headers });
+    if (!response.ok) throw new Error('Failed to fetch admin products');
+    return response.json();
+  }
+
+  static async createProduct(productData: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'is_in_stock'>): Promise<Product> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/products/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(productData),
+    });
+    if (!response.ok) throw new Error('Failed to create product');
+    return response.json();
+  }
+
+  static async updateProduct(id: number, productData: Partial<Product>): Promise<Product> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/products/${id}/`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(productData),
+    });
+    if (!response.ok) throw new Error('Failed to update product');
+    return response.json();
+  }
+
+  static async deleteProduct(id: number): Promise<void> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/products/${id}/`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to delete product');
+  }
+
+  static async approvePayment(orderId: number): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/approve_payment/`, {
+      method: 'POST',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to approve payment');
+    return response.json();
+  }
+
+  static async rejectPayment(orderId: number): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/reject_payment/`, {
+      method: 'POST',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to reject payment');
+    return response.json();
+  }
+
+  static async getOrderTracking(orderId: number): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/tracking/`, { headers });
+    if (!response.ok) throw new Error('Failed to fetch tracking info');
+    return response.json();
+  }
+
+  // Delhivery Integration
+  static async createDelhiveryShipment(shipmentId: number): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/shipments/${shipmentId}/create_delhivery_shipment/`, {
+      method: 'POST',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to create Delhivery shipment');
+    return response.json();
+  }
+
+  // Razorpay Integration
+  static async verifyRazorpayPayment(data: {
+    payment_id: string;
+    order_id: number;
+    amount: number;
+  }): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/verify-payment/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to verify payment');
+    return response.json();
+  }
+
+  static async createRazorpayRefund(data: {
+    payment_id: string;
+    amount: number;
+    reason: string;
+  }): Promise<any> {
+    const token = this.getAccessToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/create-refund/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to create refund');
+    return response.json();
+  }
+
+  // Address management methods
+  static async getAddresses(token?: string): Promise<Address[]> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/addresses/`, {
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to fetch addresses');
+    return response.json();
+  }
+
+  static async createAddress(addressData: Omit<Address, 'id' | 'user' | 'created_at' | 'updated_at'>, token?: string): Promise<Address> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/addresses/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(addressData),
+    });
+    if (!response.ok) throw new Error('Failed to create address');
+    return response.json();
+  }
+
+  static async updateAddress(id: number, addressData: Partial<Address>, token?: string): Promise<Address> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/addresses/${id}/`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(addressData),
+    });
+    if (!response.ok) throw new Error('Failed to update address');
+    return response.json();
+  }
+
+  static async deleteAddress(id: number, token?: string): Promise<void> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/addresses/${id}/`, {
+      method: 'DELETE',
+      headers,
+    });
+    if (!response.ok) throw new Error('Failed to delete address');
+  }
+
+  // UPI Settings methods
+  static async getUPISettings(): Promise<UPISettings[]> {
+    const response = await fetch(`${API_BASE_URL}/upi-settings/`);
+    if (!response.ok) throw new Error('Failed to fetch UPI settings');
+    return response.json();
+  }
+
+  // Auth utilities
+  static getCurrentUser(): User | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static getAccessToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('accessToken');
+  }
+
+  static isLoggedIn(): boolean {
+    return !!this.getCurrentUser() && !!this.getAccessToken();
+  }
+
+  static logout(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+    }
+  }
+}
