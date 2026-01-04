@@ -1,0 +1,13 @@
+{
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "startCommand": "cd frontend && npm start"
+  },
+  "railpack": {
+    "version": "0.15.4",
+    "buildCommand": "cd frontend && npm ci && npm run build",
+    "startCommand": "cd frontend && npm start"
+  }
+}

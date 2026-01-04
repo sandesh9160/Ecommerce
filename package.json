@@ -1,4 +1,13 @@
 {
+  "name": "yuvakart-frontend",
+  "version": "1.0.0",
+  "description": "YuvaKart E-Commerce Frontend",
+  "main": "index.js",
+  "scripts": {
+    "build": "cd frontend && npm ci && npm run build",
+    "start": "cd frontend && npm start",
+    "dev": "cd frontend && npm run dev"
+  },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
