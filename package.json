@@ -1,20 +1,11 @@
 {
-  "name": "yuvakart-frontend",
+  "name": "yuvakart-root",
   "version": "1.0.0",
-  "description": "YuvaKart E-Commerce Frontend",
-  "main": "index.js",
+  "description": "YuvaKart E-Commerce Platform Root",
+  "private": true,
   "scripts": {
-    "build": "cd frontend && npm ci && npm run build",
-    "start": "cd frontend && npm start",
-    "dev": "cd frontend && npm run dev"
-  },
-  "dependencies": {
-    "@radix-ui/react-slot": "^1.2.4",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "framer-motion": "^12.23.26",
-    "lucide-react": "^0.561.0",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "build": "echo 'Frontend should be built from frontend/ directory'",
+    "start": "echo 'Please run from frontend/ directory'",
+    "dev": "echo 'Please run from frontend/ directory'"
   }
 }
